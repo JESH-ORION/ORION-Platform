@@ -1,0 +1,161 @@
+@startuml
+skinparam style strictuml
+skinparam linetype ortho
+skinparam monochrome false
+skinparam packageStyle rectangle
+skinparam shadowing false
+
+package "Projeto ORION - Modelagem de Dados" {
+
+    enum tp_status_agendamento {
+        PENDENTE
+        CONFIRMADO
+        EM_ANDAMENTO
+        CONCLUIDO
+        CANCELADO
+    }
+
+    enum tp_status_pagamento {
+        PENDENTE
+        PAGO
+        REEMBOLSADO
+        FALHOU
+    }
+
+    enum tp_documento {
+        CPF
+        CNPJ
+    }
+
+    entity "perfil" as perfil {
+        * id_perfil : INT <<PK>>
+        --
+        * nome : VARCHAR(50) <<UNIQUE>>
+        descricao : TEXT
+        created_at : TIMESTAMP
+    }
+
+    entity "usuario" as usuario {
+        * id_usuario : UUID <<PK>>
+        --
+        * id_perfil : INT <<FK>>
+        * nome : VARCHAR(100)
+        * email : VARCHAR(150) <<UNIQUE>>
+        * senha_hash : VARCHAR(255)
+        telefone : VARCHAR(20)
+        documento : VARCHAR(20) <<UNIQUE>>
+        tipo_documento : tp_documento
+        ativo : BOOLEAN
+        created_at : TIMESTAMP
+        updated_at : TIMESTAMP
+    }
+
+    entity "empresa" as empresa {
+        * id_empresa : UUID <<PK>>
+        --
+        * id_proprietario : UUID <<FK>>
+        * razao_social : VARCHAR(150)
+        nome_fantasia : VARCHAR(150)
+        cnpj : VARCHAR(20) <<UNIQUE>>
+        telefone : VARCHAR(20)
+        endereco : TEXT
+        created_at : TIMESTAMP
+        updated_at : TIMESTAMP
+    }
+
+    entity "empresa_usuario" as empresa_usuario {
+        * id_empresa_usuario : UUID <<PK>>
+        --
+        * id_empresa : UUID <<FK>>
+        * id_usuario : UUID <<FK>>
+        cargo_funcao : VARCHAR(100)
+        ativo : BOOLEAN
+        created_at : TIMESTAMP
+    }
+
+    entity "categoria" as categoria {
+        * id_categoria : INT <<PK>>
+        --
+        * nome : VARCHAR(100) <<UNIQUE>>
+        descricao : TEXT
+        ativo : BOOLEAN
+    }
+
+    entity "servico" as servico {
+        * id_servico : UUID <<PK>>
+        --
+        * id_empresa : UUID <<FK>>
+        * id_categoria : INT <<FK>>
+        * nome : VARCHAR(120)
+        descricao : TEXT
+        * preco : NUMERIC(10,2)
+        * duracao_minutos : INT
+        ativo : BOOLEAN
+        created_at : TIMESTAMP
+        updated_at : TIMESTAMP
+    }
+
+    entity "agendamento" as agendamento {
+        * id_agendamento : UUID <<PK>>
+        --
+        * id_cliente : UUID <<FK>>
+        * id_prestador : UUID <<FK>>
+        * id_servico : UUID <<FK>>
+        * data_hora_inicio : TIMESTAMP
+        * data_hora_fim : TIMESTAMP
+        status : tp_status_agendamento
+        observacoes : TEXT
+        created_at : TIMESTAMP
+        updated_at : TIMESTAMP
+    }
+
+    entity "metodo_pagamento" as metodo_pagamento {
+        * id_metodo_pagamento : INT <<PK>>
+        --
+        * nome : VARCHAR(50) <<UNIQUE>>
+        ativo : BOOLEAN
+    }
+
+    entity "pagamento" as pagamento {
+        * id_pagamento : UUID <<PK>>
+        --
+        * id_agendamento : UUID <<FK>>
+        * id_metodo_pagamento : INT <<FK>>
+        * valor : NUMERIC(10,2)
+        status : tp_status_pagamento
+        data_pagamento : TIMESTAMP
+        transacao_externa_id : VARCHAR(255)
+        created_at : TIMESTAMP
+        updated_at : TIMESTAMP
+    }
+
+    entity "avaliacao" as avaliacao {
+        * id_avaliacao : UUID <<PK>>
+        --
+        * id_agendamento : UUID <<FK, UNIQUE>>
+        * nota : INT
+        comentario : TEXT
+        created_at : TIMESTAMP
+    }
+
+}
+
+' Relacionamentos e Cardinalidades
+perfil "1" -- "0..*" usuario : define perfil de
+usuario "1" -- "0..*" empresa : e proprietario de
+empresa "1" -- "0..*" empresa_usuario : possui prestadores em
+usuario "1" -- "0..*" empresa_usuario : atua como prestador em
+
+empresa "1" -- "0..*" servico : oferece
+categoria "1" -- "0..*" servico : categoriza
+
+usuario "1" -- "0..*" agendamento : realiza agendamento como cliente
+empresa_usuario "1" -- "0..*" agendamento : atende agendamento como prestador
+servico "1" -- "0..*" agendamento : e reservado em
+
+agendamento "1" -- "0..*" pagamento : possui histórico de
+metodo_pagamento "1" -- "0..*" pagamento : e utilizado em
+
+agendamento "1" -- "0..1" avaliacao : recebe
+
+@enduml
