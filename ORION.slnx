@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ORION.Api/ORION.Api.csproj" />
+    <Project Path="src/ORION.Application/ORION.Application.csproj" />
+    <Project Path="src/ORION.Domain/ORION.Domain.csproj" />
+    <Project Path="src/ORION.Infrastructure/ORION.Infrastructure.csproj" />
+  </Folder>
+</Solution>
