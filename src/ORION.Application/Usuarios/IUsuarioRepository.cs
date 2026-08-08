@@ -9,4 +9,8 @@ public interface IUsuarioRepository
     Task<UsuarioReadModel?> ObterPorEmailAsync(
         string email,
         CancellationToken cancellationToken = default);
+
+    Task<UsuarioCreateResult> CriarAsync(
+        UsuarioCreateModel model,
+        CancellationToken cancellationToken = default);
 }
