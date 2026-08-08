@@ -1,4 +1,5 @@
 using Dapper;
+using Npgsql;
 using ORION.Application.Usuarios;
 
 namespace ORION.Infrastructure.Persistence.Repositories;
@@ -45,9 +46,100 @@ public sealed class UsuarioRepository(IDbConnectionFactory connectionFactory) : 
 
         var command = new CommandDefinition(
             SelectBase + " WHERE email = @Email LIMIT 1;",
-            new { Email = email.Trim() },
+            new { Email = email.Trim().ToLowerInvariant() },
             cancellationToken: cancellationToken);
 
         return await connection.QuerySingleOrDefaultAsync<UsuarioReadModel>(command);
+    }
+
+    public async Task<UsuarioCreateResult> CriarAsync(
+        UsuarioCreateModel model,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+
+        await using var connection = await connectionFactory.OpenConnectionAsync(cancellationToken);
+
+        var perfilExiste = await connection.ExecuteScalarAsync<bool>(
+            new CommandDefinition(
+                "SELECT EXISTS (SELECT 1 FROM perfil WHERE id = @PerfilId);",
+                new { model.PerfilId },
+                cancellationToken: cancellationToken));
+
+        if (!perfilExiste)
+        {
+            return new UsuarioCreateResult(UsuarioCreateStatus.PerfilNaoEncontrado);
+        }
+
+        const string sql = """
+            INSERT INTO usuario
+            (
+                perfil_id,
+                nome,
+                email,
+                telefone,
+                senha_hash,
+                documento,
+                tipo_documento,
+                status
+            )
+            VALUES
+            (
+                @PerfilId,
+                @Nome,
+                @Email,
+                @Telefone,
+                @SenhaHash,
+                @Documento,
+                @TipoDocumento,
+                'ATIVO'
+            )
+            RETURNING
+                id AS Id,
+                perfil_id AS PerfilId,
+                nome AS Nome,
+                email AS Email,
+                telefone AS Telefone,
+                documento AS Documento,
+                tipo_documento AS TipoDocumento,
+                status AS Status,
+                ultimo_acesso AS UltimoAcesso,
+                data_criacao AS DataCriacao,
+                data_atualizacao AS DataAtualizacao;
+            """;
+
+        var parameters = new
+        {
+            model.PerfilId,
+            Nome = model.Nome.Trim(),
+            Email = model.Email.Trim().ToLowerInvariant(),
+            Telefone = string.IsNullOrWhiteSpace(model.Telefone) ? null : model.Telefone.Trim(),
+            SenhaHash = $"AUTH_PENDING:{Guid.NewGuid():N}",
+            Documento = string.IsNullOrWhiteSpace(model.Documento) ? null : model.Documento.Trim(),
+            TipoDocumento = string.IsNullOrWhiteSpace(model.TipoDocumento)
+                ? null
+                : model.TipoDocumento.Trim().ToUpperInvariant()
+        };
+
+        try
+        {
+            var usuario = await connection.QuerySingleAsync<UsuarioReadModel>(
+                new CommandDefinition(
+                    sql,
+                    parameters,
+                    cancellationToken: cancellationToken));
+
+            return new UsuarioCreateResult(UsuarioCreateStatus.Criado, usuario);
+        }
+        catch (PostgresException exception)
+            when (exception.SqlState == PostgresErrorCodes.UniqueViolation)
+        {
+            return exception.ConstraintName switch
+            {
+                "uq_usuario_email" => new UsuarioCreateResult(UsuarioCreateStatus.EmailDuplicado),
+                "uq_usuario_documento" => new UsuarioCreateResult(UsuarioCreateStatus.DocumentoDuplicado),
+                _ => throw
+            };
+        }
     }
 }
