@@ -28,7 +28,7 @@ public sealed class UsuarioRepository(IDbConnectionFactory connectionFactory) : 
         await using var connection = await connectionFactory.OpenConnectionAsync(cancellationToken);
 
         var command = new CommandDefinition(
-            SelectBase + "WHERE id = @Id LIMIT 1;",
+            SelectBase + " WHERE id = @Id LIMIT 1;",
             new { Id = id },
             cancellationToken: cancellationToken);
 
@@ -44,7 +44,7 @@ public sealed class UsuarioRepository(IDbConnectionFactory connectionFactory) : 
         await using var connection = await connectionFactory.OpenConnectionAsync(cancellationToken);
 
         var command = new CommandDefinition(
-            SelectBase + "WHERE email = @Email LIMIT 1;",
+            SelectBase + " WHERE email = @Email LIMIT 1;",
             new { Email = email.Trim() },
             cancellationToken: cancellationToken);
 
