@@ -1,4 +1,6 @@
+using ORION.Application.Usuarios;
 using ORION.Infrastructure.Persistence;
+using ORION.Infrastructure.Persistence.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,6 +13,7 @@ var postgreSqlConnectionString = builder.Configuration.GetConnectionString("Post
 builder.Services.AddSingleton<IDbConnectionFactory>(
     _ => new NpgsqlConnectionFactory(postgreSqlConnectionString));
 builder.Services.AddScoped<PostgreSqlHealthCheck>();
+builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
 
 var app = builder.Build();
 
@@ -43,6 +46,18 @@ app.MapGet("/health/database", async (
             title: "PostgreSQL indisponível.",
             statusCode: StatusCodes.Status503ServiceUnavailable);
     }
+});
+
+app.MapGet("/api/usuarios/{id:guid}", async (
+    Guid id,
+    IUsuarioRepository repository,
+    CancellationToken cancellationToken) =>
+{
+    var usuario = await repository.ObterPorIdAsync(id, cancellationToken);
+
+    return usuario is null
+        ? Results.NotFound()
+        : Results.Ok(usuario);
 });
 
 app.Run();
