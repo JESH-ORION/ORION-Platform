@@ -1,4 +1,5 @@
 using ORION.Application.Pacientes;
+using ORION.Application.Triagens;
 using ORION.Application.Usuarios;
 using ORION.Infrastructure.Persistence;
 using ORION.Infrastructure.Persistence.Repositories;
@@ -16,6 +17,7 @@ builder.Services.AddSingleton<IDbConnectionFactory>(
 builder.Services.AddScoped<PostgreSqlHealthCheck>();
 builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
 builder.Services.AddScoped<IPacienteRepository, PacienteRepository>();
+builder.Services.AddScoped<ITriagemRepository, TriagemRepository>();
 
 var app = builder.Build();
 
@@ -199,6 +201,72 @@ app.MapPost("/api/pacientes", async (
 
         _ => Results.Problem(
             title: "Não foi possível criar o paciente.",
+            statusCode: StatusCodes.Status500InternalServerError)
+    };
+});
+
+app.MapGet("/api/triagens/{id:guid}", async (
+    Guid id,
+    ITriagemRepository repository,
+    CancellationToken cancellationToken) =>
+{
+    var triagem = await repository.ObterPorIdAsync(id, cancellationToken);
+
+    return triagem is null
+        ? Results.NotFound()
+        : Results.Ok(triagem);
+});
+
+app.MapPost("/api/triagens", async (
+    TriagemCreateModel model,
+    ITriagemRepository repository,
+    CancellationToken cancellationToken) =>
+{
+    var errors = new Dictionary<string, string[]>();
+
+    if (model.PacienteId == Guid.Empty)
+    {
+        errors["pacienteId"] = ["pacienteId é obrigatório."];
+    }
+
+    var origem = model.Origem?.Trim().ToUpperInvariant();
+
+    if (string.IsNullOrWhiteSpace(origem))
+    {
+        errors["origem"] = ["origem é obrigatória."];
+    }
+    else if (origem is not ("IA" or "PROFISSIONAL" or "MANUAL"))
+    {
+        errors["origem"] = ["origem deve ser IA, PROFISSIONAL ou MANUAL."];
+    }
+
+    if (errors.Count > 0)
+    {
+        return Results.ValidationProblem(errors);
+    }
+
+    var result = await repository.CriarAsync(model, cancellationToken);
+
+    return result.Status switch
+    {
+        TriagemCreateStatus.Criada when result.Triagem is not null => Results.Created(
+            $"/api/triagens/{result.Triagem.Id}",
+            result.Triagem),
+
+        TriagemCreateStatus.PacienteNaoEncontrado => Results.ValidationProblem(
+            new Dictionary<string, string[]>
+            {
+                ["pacienteId"] = ["Paciente ativo não encontrado."]
+            }),
+
+        TriagemCreateStatus.ConsultaNaoEncontrada => Results.ValidationProblem(
+            new Dictionary<string, string[]>
+            {
+                ["consultaId"] = ["Consulta não encontrada."]
+            }),
+
+        _ => Results.Problem(
+            title: "Não foi possível criar a triagem.",
             statusCode: StatusCodes.Status500InternalServerError)
     };
 });
