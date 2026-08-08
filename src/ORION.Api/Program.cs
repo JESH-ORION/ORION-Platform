@@ -1,3 +1,4 @@
+using ORION.Application.Pacientes;
 using ORION.Application.Usuarios;
 using ORION.Infrastructure.Persistence;
 using ORION.Infrastructure.Persistence.Repositories;
@@ -14,6 +15,7 @@ builder.Services.AddSingleton<IDbConnectionFactory>(
     _ => new NpgsqlConnectionFactory(postgreSqlConnectionString));
 builder.Services.AddScoped<PostgreSqlHealthCheck>();
 builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
+builder.Services.AddScoped<IPacienteRepository, PacienteRepository>();
 
 var app = builder.Build();
 
@@ -131,6 +133,72 @@ app.MapPost("/api/usuarios", async (
 
         _ => Results.Problem(
             title: "Não foi possível criar o usuário.",
+            statusCode: StatusCodes.Status500InternalServerError)
+    };
+});
+
+app.MapGet("/api/pacientes/{id:guid}", async (
+    Guid id,
+    IPacienteRepository repository,
+    CancellationToken cancellationToken) =>
+{
+    var paciente = await repository.ObterPorIdAsync(id, cancellationToken);
+
+    return paciente is null
+        ? Results.NotFound()
+        : Results.Ok(paciente);
+});
+
+app.MapPost("/api/pacientes", async (
+    PacienteCreateModel model,
+    IPacienteRepository repository,
+    CancellationToken cancellationToken) =>
+{
+    var errors = new Dictionary<string, string[]>();
+
+    if (model.UsuarioId == Guid.Empty)
+    {
+        errors["usuarioId"] = ["usuarioId é obrigatório."];
+    }
+
+    if (string.IsNullOrWhiteSpace(model.NomeCompleto))
+    {
+        errors["nomeCompleto"] = ["nomeCompleto é obrigatório."];
+    }
+
+    if (errors.Count > 0)
+    {
+        return Results.ValidationProblem(errors);
+    }
+
+    var result = await repository.CriarAsync(model, cancellationToken);
+
+    return result.Status switch
+    {
+        PacienteCreateStatus.Criado when result.Paciente is not null => Results.Created(
+            $"/api/pacientes/{result.Paciente.Id}",
+            result.Paciente),
+
+        PacienteCreateStatus.UsuarioNaoEncontrado => Results.ValidationProblem(
+            new Dictionary<string, string[]>
+            {
+                ["usuarioId"] = ["Usuário não encontrado."]
+            }),
+
+        PacienteCreateStatus.UsuarioJaPossuiPaciente => Results.Conflict(new
+        {
+            code = "paciente_usuario_duplicado",
+            message = "Este usuário já possui cadastro de paciente."
+        }),
+
+        PacienteCreateStatus.CpfDuplicado => Results.Conflict(new
+        {
+            code = "paciente_cpf_duplicado",
+            message = "Já existe um paciente com este CPF."
+        }),
+
+        _ => Results.Problem(
+            title: "Não foi possível criar o paciente.",
             statusCode: StatusCodes.Status500InternalServerError)
     };
 });
