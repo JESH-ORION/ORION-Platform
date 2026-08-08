@@ -57,18 +57,29 @@ public sealed class UsuarioRepository(IDbConnectionFactory connectionFactory) : 
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(model);
+        ArgumentException.ThrowIfNullOrWhiteSpace(model.Nome);
+        ArgumentException.ThrowIfNullOrWhiteSpace(model.Email);
 
         await using var connection = await connectionFactory.OpenConnectionAsync(cancellationToken);
 
+        const string perfilExisteSql = """
+            SELECT EXISTS (
+                SELECT 1
+                FROM perfil
+                WHERE id = @PerfilId
+                  AND status = 'ATIVO'
+            );
+            """;
+
         var perfilExiste = await connection.ExecuteScalarAsync<bool>(
             new CommandDefinition(
-                "SELECT EXISTS (SELECT 1 FROM perfil WHERE id = @PerfilId);",
+                perfilExisteSql,
                 new { model.PerfilId },
                 cancellationToken: cancellationToken));
 
         if (!perfilExiste)
         {
-            return new UsuarioCreateResult(UsuarioCreateStatus.PerfilNaoEncontrado);
+            return new UsuarioCreateResult(UsuarioCreateStatus.PerfilInvalido);
         }
 
         const string sql = """
@@ -113,9 +124,13 @@ public sealed class UsuarioRepository(IDbConnectionFactory connectionFactory) : 
             model.PerfilId,
             Nome = model.Nome.Trim(),
             Email = model.Email.Trim().ToLowerInvariant(),
-            Telefone = string.IsNullOrWhiteSpace(model.Telefone) ? null : model.Telefone.Trim(),
-            SenhaHash = $"AUTH_PENDING:{Guid.NewGuid():N}",
-            Documento = string.IsNullOrWhiteSpace(model.Documento) ? null : model.Documento.Trim(),
+            Telefone = string.IsNullOrWhiteSpace(model.Telefone)
+                ? null
+                : model.Telefone.Trim(),
+            SenhaHash = $"PENDING_AUTH::{Guid.NewGuid():N}",
+            Documento = string.IsNullOrWhiteSpace(model.Documento)
+                ? null
+                : model.Documento.Trim(),
             TipoDocumento = string.IsNullOrWhiteSpace(model.TipoDocumento)
                 ? null
                 : model.TipoDocumento.Trim().ToUpperInvariant()
@@ -138,7 +153,7 @@ public sealed class UsuarioRepository(IDbConnectionFactory connectionFactory) : 
             {
                 "uq_usuario_email" => new UsuarioCreateResult(UsuarioCreateStatus.EmailDuplicado),
                 "uq_usuario_documento" => new UsuarioCreateResult(UsuarioCreateStatus.DocumentoDuplicado),
-                _ => throw
+                _ => throw exception
             };
         }
     }
