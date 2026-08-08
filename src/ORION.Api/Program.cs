@@ -22,6 +22,7 @@ builder.Services.AddScoped<IPacienteRepository, PacienteRepository>();
 builder.Services.AddScoped<ITriagemRepository, TriagemRepository>();
 builder.Services.AddScoped<IAgenteRepository, AgenteRepository>();
 builder.Services.AddScoped<IConversaRepository, ConversaRepository>();
+builder.Services.AddAiCore();
 
 var app = builder.Build();
 
@@ -182,4 +183,5 @@ app.MapPost("/api/conversas", async (ConversaCreateModel model, IConversaReposit
     };
 });
 
+app.MapAiCoreEndpoints();
 app.Run();
