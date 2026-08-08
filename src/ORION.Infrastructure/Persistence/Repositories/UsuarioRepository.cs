@@ -46,7 +46,7 @@ public sealed class UsuarioRepository(IDbConnectionFactory connectionFactory) : 
 
         var command = new CommandDefinition(
             SelectBase + " WHERE email = @Email LIMIT 1;",
-            new { Email = email.Trim().ToLowerInvariant() },
+            new { Email = email.Trim() },
             cancellationToken: cancellationToken);
 
         return await connection.QuerySingleOrDefaultAsync<UsuarioReadModel>(command);
@@ -63,7 +63,8 @@ public sealed class UsuarioRepository(IDbConnectionFactory connectionFactory) : 
         await using var connection = await connectionFactory.OpenConnectionAsync(cancellationToken);
 
         const string perfilExisteSql = """
-            SELECT EXISTS (
+            SELECT EXISTS
+            (
                 SELECT 1
                 FROM perfil
                 WHERE id = @PerfilId
@@ -79,7 +80,7 @@ public sealed class UsuarioRepository(IDbConnectionFactory connectionFactory) : 
 
         if (!perfilExiste)
         {
-            return new UsuarioCreateResult(UsuarioCreateStatus.PerfilInvalido);
+            return new UsuarioCreateResult(UsuarioCreateStatus.PerfilNaoEncontrado);
         }
 
         const string sql = """
@@ -147,14 +148,16 @@ public sealed class UsuarioRepository(IDbConnectionFactory connectionFactory) : 
             return new UsuarioCreateResult(UsuarioCreateStatus.Criado, usuario);
         }
         catch (PostgresException exception)
-            when (exception.SqlState == PostgresErrorCodes.UniqueViolation)
+            when (exception.SqlState == PostgresErrorCodes.UniqueViolation
+                  && exception.ConstraintName == "uq_usuario_email")
         {
-            return exception.ConstraintName switch
-            {
-                "uq_usuario_email" => new UsuarioCreateResult(UsuarioCreateStatus.EmailDuplicado),
-                "uq_usuario_documento" => new UsuarioCreateResult(UsuarioCreateStatus.DocumentoDuplicado),
-                _ => throw exception
-            };
+            return new UsuarioCreateResult(UsuarioCreateStatus.EmailDuplicado);
+        }
+        catch (PostgresException exception)
+            when (exception.SqlState == PostgresErrorCodes.UniqueViolation
+                  && exception.ConstraintName == "uq_usuario_documento")
+        {
+            return new UsuarioCreateResult(UsuarioCreateStatus.DocumentoDuplicado);
         }
     }
 }
