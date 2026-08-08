@@ -1,161 +1,454 @@
 @startuml
-skinparam style strictuml
+' Configurações visuais do diagrama
+skinparam roundcorner 5
 skinparam linetype ortho
-skinparam monochrome false
-skinparam packageStyle rectangle
 skinparam shadowing false
+skinparam class {
+    BackgroundColor White
+    BorderColor #333333
+    ArrowColor #555555
+}
 
-package "Projeto ORION - Modelagem de Dados" {
-
-    enum tp_status_agendamento {
-        PENDENTE
-        CONFIRMADO
-        EM_ANDAMENTO
-        CONCLUIDO
-        CANCELADO
-    }
-
-    enum tp_status_pagamento {
-        PENDENTE
-        PAGO
-        REEMBOLSADO
-        FALHOU
-    }
-
-    enum tp_documento {
-        CPF
-        CNPJ
-    }
-
+package "002 - Usuários e Perfis" {
     entity "perfil" as perfil {
-        * id_perfil : INT <<PK>>
+        * id : uuid <<PK>>
         --
-        * nome : VARCHAR(50) <<UNIQUE>>
-        descricao : TEXT
-        created_at : TIMESTAMP
+        * nome : varchar(100) <<UQ>>
+        descricao : text
+        * status : varchar(30) = 'ATIVO'
+        * data_criacao : timestamptz
     }
 
     entity "usuario" as usuario {
-        * id_usuario : UUID <<PK>>
+        * id : uuid <<PK>>
         --
-        * id_perfil : INT <<FK>>
-        * nome : VARCHAR(100)
-        * email : VARCHAR(150) <<UNIQUE>>
-        * senha_hash : VARCHAR(255)
-        telefone : VARCHAR(20)
-        documento : VARCHAR(20) <<UNIQUE>>
-        tipo_documento : tp_documento
-        ativo : BOOLEAN
-        created_at : TIMESTAMP
-        updated_at : TIMESTAMP
+        * perfil_id : uuid <<FK>>
+        * nome : varchar(150)
+        * email : varchar(254) <<UQ>>
+        telefone : varchar(30)
+        * senha_hash : text
+        documento : varchar(20) <<UQ>>
+        tipo_documento : varchar(10)
+        * status : varchar(30) = 'ATIVO'
+        ultimo_acesso : timestamptz
+        * data_criacao : timestamptz
+        * data_atualizacao : timestamptz
+    }
+}
+
+package "003 - Domínio Clínico Base" {
+    entity "paciente" as paciente {
+        * id : uuid <<PK>>
+        --
+        * usuario_id : uuid <<FK, UQ>>
+        * nome_completo : varchar(200)
+        data_nascimento : date
+        sexo : varchar(30)
+        cpf : varchar(14) <<UQ>>
+        * status : varchar(30) = 'ATIVO'
+        * data_criacao : timestamptz
+        * data_atualizacao : timestamptz
+    }
+
+    entity "profissional" as profissional {
+        * id : uuid <<PK>>
+        --
+        * usuario_id : uuid <<FK, UQ>>
+        * registro_profissional : varchar(50)
+        * conselho : varchar(50)
+        * uf_conselho : varchar(2)
+        * status : varchar(30) = 'ATIVO'
+        * data_criacao : timestamptz
+        * data_atualizacao : timestamptz
+    }
+}
+
+package "004 - Especialidades" {
+    entity "especialidade" as especialidade {
+        * id : uuid <<PK>>
+        --
+        * nome : varchar(150) <<UQ>>
+        descricao : text
+        * status : varchar(30) = 'ATIVO'
+        * data_criacao : timestamptz
+        * data_atualizacao : timestamptz
+    }
+
+    entity "profissional_especialidade" as profissional_especialidade {
+        * profissional_id : uuid <<PK, FK>>
+        * especialidade_id : uuid <<PK, FK>>
+        --
+        * data_criacao : timestamptz
+    }
+}
+
+package "005 - Organizações e Empresas" {
+    entity "organizacao" as organizacao {
+        * id : uuid <<PK>>
+        --
+        * nome : varchar(200)
+        nome_fantasia : varchar(200)
+        * tipo : varchar(50)
+        documento : varchar(30) <<UQ>>
+        * status : varchar(30) = 'ATIVO'
+        * data_criacao : timestamptz
+        * data_atualizacao : timestamptz
     }
 
     entity "empresa" as empresa {
-        * id_empresa : UUID <<PK>>
+        * id : uuid <<PK>>
         --
-        * id_proprietario : UUID <<FK>>
-        * razao_social : VARCHAR(150)
-        nome_fantasia : VARCHAR(150)
-        cnpj : VARCHAR(20) <<UNIQUE>>
-        telefone : VARCHAR(20)
-        endereco : TEXT
-        created_at : TIMESTAMP
-        updated_at : TIMESTAMP
+        organizacao_id : uuid <<FK, UQ>>
+        * id_proprietario : uuid <<FK>>
+        * razao_social : varchar(150)
+        nome_fantasia : varchar(150)
+        cnpj : varchar(20) <<UQ>>
+        telefone : varchar(30)
+        endereco : text
+        * status : varchar(30) = 'ATIVO'
+        * data_criacao : timestamptz
+        * data_atualizacao : timestamptz
     }
 
     entity "empresa_usuario" as empresa_usuario {
-        * id_empresa_usuario : UUID <<PK>>
+        * id : uuid <<PK>>
         --
-        * id_empresa : UUID <<FK>>
-        * id_usuario : UUID <<FK>>
-        cargo_funcao : VARCHAR(100)
-        ativo : BOOLEAN
-        created_at : TIMESTAMP
+        * empresa_id : uuid <<FK>>
+        * usuario_id : uuid <<FK>>
+        profissional_id : uuid <<FK>>
+        cargo_funcao : varchar(100)
+        * ativo : boolean = true
+        * data_criacao : timestamptz
     }
+}
 
+package "006 - Serviços e Categorias" {
     entity "categoria" as categoria {
-        * id_categoria : INT <<PK>>
+        * id : uuid <<PK>>
         --
-        * nome : VARCHAR(100) <<UNIQUE>>
-        descricao : TEXT
-        ativo : BOOLEAN
+        * nome : varchar(100) <<UQ>>
+        descricao : text
+        * status : varchar(30) = 'ATIVO'
+        * data_criacao : timestamptz
     }
 
     entity "servico" as servico {
-        * id_servico : UUID <<PK>>
+        * id : uuid <<PK>>
         --
-        * id_empresa : UUID <<FK>>
-        * id_categoria : INT <<FK>>
-        * nome : VARCHAR(120)
-        descricao : TEXT
-        * preco : NUMERIC(10,2)
-        * duracao_minutos : INT
-        ativo : BOOLEAN
-        created_at : TIMESTAMP
-        updated_at : TIMESTAMP
+        * empresa_id : uuid <<FK>>
+        * categoria_id : uuid <<FK>>
+        * nome : varchar(120)
+        descricao : text
+        * preco : numeric(12,2) = 0
+        * duracao_minutos : integer
+        * modalidade : varchar(30) = 'ONLINE'
+        * status : varchar(30) = 'ATIVO'
+        * data_criacao : timestamptz
+        * data_atualizacao : timestamptz
     }
+}
 
+package "007 - Agendamentos e Consultas" {
     entity "agendamento" as agendamento {
-        * id_agendamento : UUID <<PK>>
+        * id : uuid <<PK>>
         --
-        * id_cliente : UUID <<FK>>
-        * id_prestador : UUID <<FK>>
-        * id_servico : UUID <<FK>>
-        * data_hora_inicio : TIMESTAMP
-        * data_hora_fim : TIMESTAMP
-        status : tp_status_agendamento
-        observacoes : TEXT
-        created_at : TIMESTAMP
-        updated_at : TIMESTAMP
+        * paciente_id : uuid <<FK>>
+        * prestador_id : uuid <<FK>>
+        * empresa_id : uuid <<FK>>
+        * servico_id : uuid <<FK>>
+        * data_inicio : timestamptz
+        * data_fim : timestamptz
+        * modalidade : varchar(30)
+        * status : varchar(30) = 'AGENDADO'
+        observacao : text
+        * data_criacao : timestamptz
+        * data_atualizacao : timestamptz
     }
 
-    entity "metodo_pagamento" as metodo_pagamento {
-        * id_metodo_pagamento : INT <<PK>>
+    entity "consulta" as consulta {
+        * id : uuid <<PK>>
         --
-        * nome : VARCHAR(50) <<UNIQUE>>
-        ativo : BOOLEAN
+        * agendamento_id : uuid <<FK, UQ>>
+        * paciente_id : uuid <<FK>>
+        * profissional_id : uuid <<FK>>
+        empresa_id : uuid <<FK>>
+        * modalidade : varchar(30)
+        * status : varchar(30) = 'INICIADA'
+        inicio : timestamptz
+        fim : timestamptz
+        observacao : text
+        * data_criacao : timestamptz
+        * data_atualizacao : timestamptz
+    }
+}
+
+package "008 - Prontuário, Triagem e Exames" {
+    entity "triagem" as triagem {
+        * id : uuid <<PK>>
+        --
+        * paciente_id : uuid <<FK>>
+        consulta_id : uuid <<FK>>
+        * origem : varchar(30)
+        * status : varchar(30) = 'INICIADA'
+        resumo : text
+        classificacao : varchar(50)
+        * data_criacao : timestamptz
+        * data_atualizacao : timestamptz
+    }
+
+    entity "prontuario" as prontuario {
+        * id : uuid <<PK>>
+        --
+        * paciente_id : uuid <<FK, UQ>>
+        * status : varchar(30) = 'ATIVO'
+        * data_criacao : timestamptz
+        * data_atualizacao : timestamptz
+    }
+
+    entity "exame" as exame {
+        * id : uuid <<PK>>
+        --
+        * paciente_id : uuid <<FK>>
+        profissional_id : uuid <<FK>>
+        consulta_id : uuid <<FK>>
+        organizacao_id : uuid <<FK>>
+        * tipo : varchar(150)
+        * status : varchar(30) = 'SOLICITADO'
+        * data_solicitacao : timestamptz
+        data_realizacao : timestamptz
+        resultado_resumo : text
+        * data_criacao : timestamptz
+        * data_atualizacao : timestamptz
+    }
+}
+
+package "009 - Arquivos e Mensageria" {
+    entity "arquivo" as arquivo {
+        * id : uuid <<PK>>
+        --
+        * nome_original : varchar(255)
+        * storage_key : text <<UQ>>
+        * content_type : varchar(150)
+        * tamanho_bytes : bigint
+        hash : varchar(128)
+        * categoria : varchar(50)
+        * status : varchar(30) = 'ATIVO'
+        * data_upload : timestamptz
+        * data_criacao : timestamptz
+        * data_atualizacao : timestamptz
+    }
+
+    entity "exame_arquivo" as exame_arquivo {
+        * exame_id : uuid <<PK, FK>>
+        * arquivo_id : uuid <<PK, FK>>
+        --
+        tipo : varchar(50)
+        * data_criacao : timestamptz
+    }
+
+    entity "conversa" as conversa {
+        * id : uuid <<PK>>
+        --
+        * tipo : varchar(40)
+        paciente_id : uuid <<FK>>
+        profissional_id : uuid <<FK>>
+        * status : varchar(30) = 'ATIVA'
+        * data_criacao : timestamptz
+        * data_atualizacao : timestamptz
+    }
+
+    entity "mensagem" as mensagem {
+        * id : uuid <<PK>>
+        --
+        * conversa_id : uuid <<FK>>
+        usuario_id : uuid <<FK>>
+        * conteudo : text
+        * tipo : varchar(30)
+        * data_envio : timestamptz
+        lida_em : timestamptz
+    }
+}
+
+package "010 - Inteligência Artificial" {
+    entity "agente" as agente {
+        * id : uuid <<PK>>
+        --
+        * nome : varchar(150)
+        * identificador : varchar(100)
+        * versao : varchar(30)
+        finalidade : text
+        * status : varchar(30) = 'ATIVO'
+        * data_criacao : timestamptz
+        * data_atualizacao : timestamptz
+    }
+
+    entity "interacao_ia" as interacao_ia {
+        * id : uuid <<PK>>
+        --
+        * agente_id : uuid <<FK>>
+        usuario_id : uuid <<FK>>
+        paciente_id : uuid <<FK>>
+        conversa_id : uuid <<FK>>
+        * data_inicio : timestamptz
+        data_fim : timestamptz
+        * status : varchar(30) = 'INICIADA'
+        modelo : varchar(100)
+        versao_agente : varchar(30)
+    }
+
+    entity "ferramenta_ia" as ferramenta_ia {
+        * id : uuid <<PK>>
+        --
+        * nome : varchar(150)
+        * identificador : varchar(100) <<UQ>>
+        descricao : text
+        * status : varchar(30) = 'ATIVO'
+        * data_criacao : timestamptz
+        * data_atualizacao : timestamptz
+    }
+
+    entity "execucao_ferramenta" as execucao_ferramenta {
+        * id : uuid <<PK>>
+        --
+        * interacao_ia_id : uuid <<FK>>
+        * ferramenta_id : uuid <<FK>>
+        * status : varchar(30) = 'INICIADA'
+        * inicio : timestamptz
+        fim : timestamptz
+        erro : text
+    }
+}
+
+package "011 - Pagamento e Avaliação" {
+    entity "metodo_pagamento" as metodo_pagamento {
+        * id : uuid <<PK>>
+        --
+        * nome : varchar(50) <<UQ>>
+        * status : varchar(30) = 'ATIVO'
+        * data_criacao : timestamptz
     }
 
     entity "pagamento" as pagamento {
-        * id_pagamento : UUID <<PK>>
+        * id : uuid <<PK>>
         --
-        * id_agendamento : UUID <<FK>>
-        * id_metodo_pagamento : INT <<FK>>
-        * valor : NUMERIC(10,2)
-        status : tp_status_pagamento
-        data_pagamento : TIMESTAMP
-        transacao_externa_id : VARCHAR(255)
-        created_at : TIMESTAMP
-        updated_at : TIMESTAMP
+        * agendamento_id : uuid <<FK>>
+        * metodo_pagamento_id : uuid <<FK>>
+        * valor : numeric(12,2)
+        * status : varchar(30) = 'PENDENTE'
+        data_pagamento : timestamptz
+        transacao_externa_id : varchar(255)
+        * data_criacao : timestamptz
+        * data_atualizacao : timestamptz
     }
 
     entity "avaliacao" as avaliacao {
-        * id_avaliacao : UUID <<PK>>
+        * id : uuid <<PK>>
         --
-        * id_agendamento : UUID <<FK, UNIQUE>>
-        * nota : INT
-        comentario : TEXT
-        created_at : TIMESTAMP
+        * agendamento_id : uuid <<FK, UQ>>
+        * nota : integer
+        comentario : text
+        * data_criacao : timestamptz
     }
-
 }
 
-' Relacionamentos e Cardinalidades
-perfil "1" -- "0..*" usuario : define perfil de
-usuario "1" -- "0..*" empresa : e proprietario de
-empresa "1" -- "0..*" empresa_usuario : possui prestadores em
-usuario "1" -- "0..*" empresa_usuario : atua como prestador em
+package "012 - Segurança e Auditoria" {
+    entity "permissao" as permissao {
+        * id : uuid <<PK>>
+        --
+        * nome : varchar(150)
+        * identificador : varchar(150) <<UQ>>
+        descricao : text
+        * data_criacao : timestamptz
+    }
 
-empresa "1" -- "0..*" servico : oferece
-categoria "1" -- "0..*" servico : categoriza
+    entity "perfil_permissao" as perfil_permissao {
+        * perfil_id : uuid <<PK, FK>>
+        * permissao_id : uuid <<PK, FK>>
+    }
 
-usuario "1" -- "0..*" agendamento : realiza agendamento como cliente
-empresa_usuario "1" -- "0..*" agendamento : atende agendamento como prestador
-servico "1" -- "0..*" agendamento : e reservado em
+    entity "auditoria" as auditoria {
+        * id : uuid <<PK>>
+        --
+        usuario_id : uuid <<FK>>
+        * acao : varchar(100)
+        * entidade : varchar(100)
+        entidade_id : uuid
+        * data_evento : timestamptz
+        ip : inet
+        * sucesso : boolean = true
+    }
+}
 
-agendamento "1" -- "0..*" pagamento : possui histórico de
-metodo_pagamento "1" -- "0..*" pagamento : e utilizado em
+' --- RELACIONAMENTOS ---
 
-agendamento "1" -- "0..1" avaliacao : recebe
+' Usuário e Perfis
+perfil ||--o{ usuario : "perfil_id"
+
+' Perfis e Permissões
+perfil ||--o{ perfil_permissao
+permissao ||--o{ perfil_permissao
+
+' Extensões de Usuário
+usuario ||--o| paciente : "usuario_id"
+usuario ||--o| profissional : "usuario_id"
+
+' Profissional e Especialidades
+profissional ||--o{ profissional_especialidade
+especialidade ||--o{ profissional_especialidade
+
+' Organizações e Empresas
+organizacao ||--o| empresa : "organizacao_id"
+usuario ||--o{ empresa : "id_proprietario"
+empresa ||--o{ empresa_usuario : "empresa_id"
+usuario ||--o{ empresa_usuario : "usuario_id"
+profissional ||--o{ empresa_usuario : "profissional_id"
+
+' Serviços
+empresa ||--o{ servico : "empresa_id"
+categoria ||--o{ servico : "categoria_id"
+
+' Agendamentos e Consultas
+paciente ||--o{ agendamento : "paciente_id"
+empresa_usuario ||--o{ agendamento : "prestador_id, empresa_id"
+servico ||--o{ agendamento : "servico_id, empresa_id"
+
+agendamento ||--o| consulta : "agendamento_id"
+paciente ||--o{ consulta : "paciente_id"
+profissional ||--o{ consulta : "profissional_id"
+empresa ||--o{ consulta : "empresa_id"
+
+' Triagem, Prontuário e Exames
+paciente ||--o{ triagem : "paciente_id"
+consulta ||--o{ triagem : "consulta_id"
+paciente ||--o| prontuario : "paciente_id"
+
+paciente ||--o{ exame : "paciente_id"
+profissional ||--o{ exame : "profissional_id"
+consulta ||--o{ exame : "consulta_id"
+organizacao ||--o{ exame : "organizacao_id"
+exame ||--o{ exame_arquivo
+arquivo ||--o{ exame_arquivo
+
+' Conversas e Mensagens
+paciente ||--o{ conversa : "paciente_id"
+profissional ||--o{ conversa : "profissional_id"
+conversa ||--o{ mensagem : "conversa_id"
+usuario ||--o{ mensagem : "usuario_id"
+
+' IA
+agente ||--o{ interacao_ia : "agente_id"
+usuario ||--o{ interacao_ia : "usuario_id"
+paciente ||--o{ interacao_ia : "paciente_id"
+conversa ||--o{ interacao_ia : "conversa_id"
+interacao_ia ||--o{ execucao_ferramenta : "interacao_ia_id"
+ferramenta_ia ||--o{ execucao_ferramenta : "ferramenta_id"
+
+' Pagamentos e Avaliação
+agendamento ||--o{ pagamento : "agendamento_id"
+metodo_pagamento ||--o{ pagamento : "metodo_pagamento_id"
+agendamento ||--o| avaliacao : "agendamento_id"
+
+' Auditoria
+usuario ||--o{ auditoria : "usuario_id"
 
 @enduml
