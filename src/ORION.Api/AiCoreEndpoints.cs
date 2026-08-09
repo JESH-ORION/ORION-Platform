@@ -1,5 +1,7 @@
+using ORION.Application.IA;
 using ORION.Application.InteracoesIA;
 using ORION.Application.Mensagens;
+using ORION.Infrastructure.AI;
 using ORION.Infrastructure.Persistence.Repositories;
 
 public static class AiCoreEndpoints
@@ -8,6 +10,8 @@ public static class AiCoreEndpoints
     {
         services.AddScoped<IMensagemRepository, MensagemRepository>();
         services.AddScoped<IInteracaoIARepository, InteracaoIARepository>();
+        services.AddScoped<IModeloIAProvider, LocalDevelopmentModeloIAProvider>();
+        services.AddScoped<IAgentExecutionService, AgentExecutionService>();
         return services;
     }
 
@@ -80,6 +84,55 @@ public static class AiCoreEndpoints
                 InteracaoIACreateStatus.UsuarioNaoEncontrado => Results.ValidationProblem(
                     new Dictionary<string, string[]> { ["usuarioId"] = ["Usuário ativo não encontrado."] }),
                 _ => Results.Problem(title: "Não foi possível criar a interação IA.", statusCode: StatusCodes.Status500InternalServerError)
+            };
+        });
+
+        endpoints.MapPost("/api/agentes/executar", async (
+            AgentExecutionRequest request,
+            IAgentExecutionService executionService,
+            CancellationToken cancellationToken) =>
+        {
+            var errors = new Dictionary<string, string[]>();
+            if (request.InteracaoId == Guid.Empty) errors["interacaoId"] = ["interacaoId é obrigatório."];
+            if (request.MensagemId == Guid.Empty) errors["mensagemId"] = ["mensagemId é obrigatório."];
+            if (errors.Count > 0) return Results.ValidationProblem(errors);
+
+            var result = await executionService.ExecutarAsync(request, cancellationToken);
+
+            return result.Status switch
+            {
+                AgentExecutionStatus.Sucesso when result.MensagemResposta is not null => Results.Ok(new
+                {
+                    status = "finalizada",
+                    modelo = result.Modelo,
+                    mensagem = result.MensagemResposta
+                }),
+                AgentExecutionStatus.InteracaoNaoEncontrada => Results.NotFound(new
+                {
+                    code = "interacao_nao_encontrada",
+                    message = "Interação IA não encontrada."
+                }),
+                AgentExecutionStatus.MensagemNaoEncontrada => Results.NotFound(new
+                {
+                    code = "mensagem_nao_encontrada",
+                    message = "Mensagem não encontrada."
+                }),
+                AgentExecutionStatus.InteracaoInvalida => Results.Conflict(new
+                {
+                    code = "interacao_estado_invalido",
+                    message = "A interação IA não está em um estado executável."
+                }),
+                AgentExecutionStatus.ConversaIncompativel => Results.Conflict(new
+                {
+                    code = "conversa_incompativel",
+                    message = "A mensagem e a interação IA não pertencem à mesma conversa."
+                }),
+                AgentExecutionStatus.FalhaProvider => Results.Problem(
+                    title: "Falha ao executar o provider de IA.",
+                    statusCode: StatusCodes.Status502BadGateway),
+                _ => Results.Problem(
+                    title: "Falha ao persistir a execução do agente.",
+                    statusCode: StatusCodes.Status500InternalServerError)
             };
         });
 
