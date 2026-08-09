@@ -101,4 +101,35 @@ public sealed class InteracaoIARepository(IDbConnectionFactory connectionFactory
 
         return new InteracaoIACreateResult(InteracaoIACreateStatus.Criada, interacao);
     }
+
+    public async Task<bool> AtualizarStatusAsync(
+        Guid id,
+        string status,
+        string? modelo = null,
+        bool finalizar = false,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionFactory.OpenConnectionAsync(cancellationToken);
+
+        const string sql = """
+            UPDATE interacao_ia
+            SET status = @Status,
+                modelo = COALESCE(@Modelo, modelo),
+                data_fim = CASE WHEN @Finalizar THEN now() ELSE data_fim END
+            WHERE id = @Id;
+            """;
+
+        var linhas = await connection.ExecuteAsync(new CommandDefinition(
+            sql,
+            new
+            {
+                Id = id,
+                Status = status.Trim().ToUpperInvariant(),
+                Modelo = string.IsNullOrWhiteSpace(modelo) ? null : modelo.Trim(),
+                Finalizar = finalizar
+            },
+            cancellationToken: cancellationToken));
+
+        return linhas == 1;
+    }
 }
