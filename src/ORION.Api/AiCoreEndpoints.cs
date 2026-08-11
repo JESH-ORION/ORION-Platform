@@ -6,12 +6,35 @@ using ORION.Infrastructure.Persistence.Repositories;
 
 public static class AiCoreEndpoints
 {
-    public static IServiceCollection AddAiCore(this IServiceCollection services)
+    public static IServiceCollection AddAiCore(
+        this IServiceCollection services,
+        IConfiguration configuration)
     {
         services.AddScoped<IMensagemRepository, MensagemRepository>();
         services.AddScoped<IInteracaoIARepository, InteracaoIARepository>();
-        services.AddScoped<IModeloIAProvider, LocalDevelopmentModeloIAProvider>();
         services.AddScoped<IAgentExecutionService, AgentExecutionService>();
+
+        services.AddScoped<LocalDevelopmentModeloIAProvider>();
+
+        var openAIOptions = new OpenAIModeloIAOptions
+        {
+            ApiKey = configuration["OpenAI:ApiKey"] ?? string.Empty,
+            Model = configuration["OpenAI:Model"] ?? "gpt-5-mini",
+            BaseUrl = configuration["OpenAI:BaseUrl"] ?? "https://api.openai.com/v1"
+        };
+
+        services.AddSingleton(openAIOptions);
+        services.AddHttpClient<OpenAIModeloIAProvider>();
+
+        services.AddScoped<IModeloIAProvider>(serviceProvider =>
+        {
+            var provider = configuration["AI:Provider"]?.Trim();
+
+            return string.Equals(provider, "OpenAI", StringComparison.OrdinalIgnoreCase)
+                ? serviceProvider.GetRequiredService<OpenAIModeloIAProvider>()
+                : serviceProvider.GetRequiredService<LocalDevelopmentModeloIAProvider>();
+        });
+
         return services;
     }
 
