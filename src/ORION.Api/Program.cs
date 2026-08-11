@@ -22,7 +22,7 @@ builder.Services.AddScoped<IPacienteRepository, PacienteRepository>();
 builder.Services.AddScoped<ITriagemRepository, TriagemRepository>();
 builder.Services.AddScoped<IAgenteRepository, AgenteRepository>();
 builder.Services.AddScoped<IConversaRepository, ConversaRepository>();
-builder.Services.AddAiCore();
+builder.Services.AddAiCore(builder.Configuration);
 
 var app = builder.Build();
 
