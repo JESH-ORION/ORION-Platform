@@ -49,7 +49,7 @@ public sealed class AgentExecutionService(
                     mensagem.Conteudo),
                 cancellationToken);
         }
-        catch
+        catch (Exception ex)
         {
             await interacaoRepository.AtualizarStatusAsync(
                 interacao.Id,
@@ -60,7 +60,8 @@ public sealed class AgentExecutionService(
 
             return new AgentExecutionResult(
                 AgentExecutionStatus.FalhaProvider,
-                Modelo: modeloProvider.NomeModelo);
+                Modelo: modeloProvider.NomeModelo,
+                Diagnostico: ex.Message);
         }
 
         var mensagemResult = await mensagemRepository.CriarAsync(
