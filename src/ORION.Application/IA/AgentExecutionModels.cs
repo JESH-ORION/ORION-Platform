@@ -20,4 +20,5 @@ public enum AgentExecutionStatus
 public sealed record AgentExecutionResult(
     AgentExecutionStatus Status,
     MensagemReadModel? MensagemResposta = null,
-    string? Modelo = null);
+    string? Modelo = null,
+    string? Diagnostico = null);
