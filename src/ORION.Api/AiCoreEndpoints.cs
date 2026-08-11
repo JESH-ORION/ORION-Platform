@@ -113,6 +113,7 @@ public static class AiCoreEndpoints
         endpoints.MapPost("/api/agentes/executar", async (
             AgentExecutionRequest request,
             IAgentExecutionService executionService,
+            IWebHostEnvironment environment,
             CancellationToken cancellationToken) =>
         {
             var errors = new Dictionary<string, string[]>();
@@ -152,6 +153,7 @@ public static class AiCoreEndpoints
                 }),
                 AgentExecutionStatus.FalhaProvider => Results.Problem(
                     title: "Falha ao executar o provider de IA.",
+                    detail: environment.IsDevelopment() ? result.Diagnostico : null,
                     statusCode: StatusCodes.Status502BadGateway),
                 _ => Results.Problem(
                     title: "Falha ao persistir a execução do agente.",
